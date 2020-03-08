@@ -1,0 +1,39 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>{{ site_title }}</title>
+
+    <!-- CSS  -->
+    <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
+    <link href="{{ url_for('static',filename='css/materialize.min.css') }}" type="text/css" rel="stylesheet"
+          media="screen,projection"/>
+
+</head>
+
+<body>
+
+<!--CONTAINER-->
+<div class="container">
+    <h1 class="header center orange-text">{{ header }}</h1>
+    <h4 class="center light-blue-text">{{ sub_header }}</h4>
+
+    <p>Value from the Query: <b></b></p>
+    <p>Here are our count and avg discount</p>
+    <p> COUNT: </p>
+    {{count}}
+    <br>
+    <p> AVERAGE DISCOUNT</p>
+    {{avg}}
+    
+</div>
+
+<br>
+<br>
+<br>
+<br>
+<br>
+
+
+</body>
+</html>
