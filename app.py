@@ -30,30 +30,6 @@ brands=['prada',
  'rag & bone',
  'spanx',
  'common projects']
-def competitors(c):
-    l6=data.iloc[[c],[10,14]]
-    l = l6['similar_products']
-    l7 = l6['price']
-    coro= l7[c]
-    jolly = coro['basket_price']
-    jolly2 = jolly['value']
-    yy = l[c]
-    condition = 0
-    ee= yy['website_results']
-    kk = list(ee.keys())
-    for j in range(len(kk)):
-        rrq =  ee[kk[j]]
-        pp = rrq['knn_items']
-        if(len(pp)!=0):
-            c=pp[0]
-            ta = c['_source']
-            llb = ta['price']
-            llb1=llb['basket_price']
-            llb2= llb1['value']
-            if(jolly2<llb2):
-                condition = 1
-                break
-    return condition
 app = Flask(__name__)
 queries = ['NAP products ','NAP_products_count and avg_discount','expensive_list','competition_discount_diff_list']
 filter_list = ['Discount','Brand Name ','Competition'] 
@@ -228,55 +204,109 @@ def fil3():
         if ( discount_rate > 100 or discount_rate < 0):
             return render_template('ppt3.html', chota_message ='Plz make sure symbol can be (>, < ,==) and discount rate is > 0 and < 100')
         else:
-            l1=  data['price']
+            l7=  data['price']
+            l = data['similar_products']
             n=discount_rate
             if(symbol == 1):
                 l3=[]
                 l4= []
                 l2=[]
-                for k in range(len(l1)):
-                    my_no = k
-                    dit = l1[k]
+                condition = 0
+                for k in range(len(l7)):
+                    dit = l7[k]
                     p1 = dit['offer_price']
                     p2 = dit['regular_price']
                     if ((p2['value'] - p1['value'])/p2['value'])*100 < n:
-                        
-                        rr = competitors(my_no)
-                    if rr == 0:
-                        l3.append(k)
+                        coro= l7[k]
+                        jolly = coro['basket_price']
+                        jolly2 = jolly['value']
+                        yy = l[k]
+                        condition = 0
+                        ee= yy['website_results']
+                        kk1 = list(ee.keys())
+                        for j in range(len(kk1)):
+                            rrq =  ee[kk1[j]]
+                            pp = rrq['knn_items']
+                            if(len(pp)!=0):
+                                c=pp[0]
+                                ta = c['_source']
+                                llb = ta['price']
+                                llb1=llb['basket_price']
+                                llb2= llb1['value']
+                                if(jolly2<llb2):
+                                    condition = 1
+                                    break                
+                        if condition == 0:
+                            l3.append(k)
                 for ck in l3:
                     l2.append(kk[ck])
                 
             elif(symbol == 3):
-                l1=data['price']
                 l3=[]
-                l4= []
                 l2=[]
-                for i in range(len(l1)):
-                    dit = l1[i]
+                condition = 0
+                for k in range(len(l7)):
+                    dit = l7[k]
                     p1 = dit['offer_price']
                     p2 = dit['regular_price']
-                    if ((p2['value'] - p1['value'])/p2['value'])*100 > n:
-                        rr=competitors(0)
-                        if rr == 0:
-                            l3.append(i)
+                    if ((p2['value'] - p1['value'])/p2['value'])*100 < n:
+                        coro= l7[k]
+                        jolly = coro['basket_price']
+                        jolly2 = jolly['value']
+                        yy = l[k]
+                        condition = 0
+                        ee= yy['website_results']
+                        kk1 = list(ee.keys())
+                        for j in range(len(kk1)):
+                            rrq =  ee[kk1[j]]
+                            pp = rrq['knn_items']
+                            if(len(pp)!=0):
+                                c=pp[0]
+                                ta = c['_source']
+                                llb = ta['price']
+                                llb1=llb['basket_price']
+                                llb2= llb1['value']
+                                if(jolly2<llb2):
+                                    condition = 1
+                                    break                
+                        if condition == 0:
+                            l3.append(k)
+                for ck in l3:
+                    l2.append(kk[ck])
                 for i in l3:
                     l2.append(kk[i])
             else:
-                l1=data['price']
                 l3=[]
-                l4= []
                 l2=[]
-                for i in range(len(l1)):
-                    dit = l1[i]
+                condition = 0
+                for k in range(len(l7)):
+                    dit = l7[k]
                     p1 = dit['offer_price']
                     p2 = dit['regular_price']
-                    if ((p2['value'] - p1['value'])/p2['value'])*100 == n:
-                        rr = competitors(0)
-                        if(rr == 0):
-                            l3.append(i)
-                for i in l3:
-                    l2.append(kk[i])
+                    if ((p2['value'] - p1['value'])/p2['value'])*100 < n:
+                        coro= l7[k]
+                        jolly = coro['basket_price']
+                        jolly2 = jolly['value']
+                        yy = l[k]
+                        condition = 0
+                        ee= yy['website_results']
+                        kk1 = list(ee.keys())
+                        for j in range(len(kk1)):
+                            rrq =  ee[kk1[j]]
+                            pp = rrq['knn_items']
+                            if(len(pp)!=0):
+                                c=pp[0]
+                                ta = c['_source']
+                                llb = ta['price']
+                                llb1=llb['basket_price']
+                                llb2= llb1['value']
+                                if(jolly2<llb2):
+                                    condition = 1
+                                    break                
+                        if condition == 0:
+                            l3.append(k)
+                for ck in l3:
+                    l2.append(kk[ck])
         return render_template('yoga.html', galaxies = l2 )
 @app.route('/fil5', methods=['POST'])
 def fil5():
