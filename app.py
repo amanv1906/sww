@@ -4,12 +4,14 @@ import pandas as pd
 import json
 import os
 product_json=[]
+#loading of data
 with open('netaporter_gb_similar.json',encoding="utf8") as fp:
     for product in fp.readlines():
         product_json.append(json.loads(product))
 data= pd.DataFrame(product_json)
-kk = data['_id']
+#competition id
 my_tid= ['5d0cc7b68a66a100014acdb0' ,'5da94e940ffeca000172b12a' ,'5da94ef80ffeca000172b12c' ,'5da94f270ffeca000172b12e' , '5da94f4e6d97010001f81d72']
+#brand names
 brands=['prada',
  'a.p.c. atelier de production et de création',
  'the row',
@@ -30,9 +32,171 @@ brands=['prada',
  'rag & bone',
  'spanx',
  'common projects']
+#class through which we can access our queries
+class queries_net:
+    #this function returns the product id satisfy the filters
+    def list_of_product(self,list_of_products):
+        l2=[]
+        #data['_id'] contains the ids of the product
+        kk=data['_id']
+        for i in list_of_products:
+            l2.append(kk[i])
+        return l2
+    #this function returns the count and avg discount for the given filter
+    def count_and_avg_discount(self,list_of_products,price_dictionary):
+        #list_of_product is the list we get after applying filter
+        #price dictionary is the dictionary which contains the price related information which is provided 
+        count = 0
+        disc=0
+        sum1=0
+        value_of_discounted_product=[]
+        for i in list_of_products:
+            dit = price_dictionary[i]
+            p1 = dit['offer_price']
+            p2 = dit['regular_price']
+            #we are cqlculating avg of a product and append it in list.
+            value_of_discounted_product.append(((p2['value'] - p1['value'])/p2['value']))
+            count=count+1
+            #after getting count and list of discounted product we are returning avg discount and count of products
+        for i in value_of_discounted_product:
+            sum1=sum1+i
+        if(count!=0):
+            disc = float(sum1/count)
+        return count,disc
+    #expensive list means if the retailer is selling product greater than any of the competitors
+    def expensive_list(self,list_of_products,price_dictionary,similar_dictionary):
+        #list_of_product is the list we get after applying filter
+        #price dictionary is the dictionary which contains the price related information which is provided 
+        #similar_dictionary is the dictionary which contains similar product information
+        l3=[]
+        for k in list_of_products:
+            dit = price_dictionary[k]
+            #taking value of basket price from price_dictionary
+            jolly = dit['basket_price']
+            jolly2 = jolly['value']
+            yy = similar_dictionary[k]
+            condition = 0
+            #basket price of competitors is in website result dictionary of similar dictionary
+            ee= yy['website_results']
+            #it contains the key of the competitors
+            kk1 = list(ee.keys())
+            for j in range(len(kk1)):
+                rrq =  ee[kk1[j]]
+                pp = rrq['knn_items']
+                #the basket price of competitors is inside knn_items
+                if(len(pp)!=0):
+                    #here we are checking if the competitors is selling the same product than its knn it should not be empty
+                    c=pp[0]
+                    ta = c['_source']
+                    llb = ta['price']
+                    llb1=llb['basket_price']
+                    llb2= llb1['value']
+                    #comparing both site basket_price value if net a porter is selling product higher than any of the competitors than condition =1
+                    if(jolly2>llb2):
+                        #why break is used if my condition find any price higher than the competitors than my query becomes true :NAP products where they are selling at a price higher than any of the competition
+                        #it saves time because we dont have to compare all competitors 
+                        condition = 1
+                        break                
+            if condition == 1:
+                l3.append(k)
+        return l3
+    #this function is for whether they are selling at a price n% higher than a competitor X
+    def competition(self,discount_n,id_no,list_of_product,similar_product_dict,price_dict):
+        
+        ltr = []
+        for i in list_of_product:
+            dit = price_dict[i]
+            p1 = dit['basket_price']
+            jool = p1['value']
+            yy = similar_product_dict[i]
+            ee= yy['website_results']
+            kl = list(ee.keys())
+            for j in range(len(kl)):
+                rrq =  ee[kl[j]]
+                pp = rrq['knn_items']
+                #in this one condition is also added which is used for checking the competitor selected by us is in our all competitors list
+                if(len(pp)!=0 and my_tid[id_no-1] == kl[j]):
+                    c=pp[0]
+                    ta = c['_source']
+                    llb = ta['price']
+                    llb1=llb['basket_price']
+                    llb2= llb1['value']
+                    avg = ((jool+llb2)/2)
+                    #here we are calculating percentage diff
+                    #comparing the discount percentage with the percent provided by user
+                    if((((jool-llb2)/avg)*100) > discount_n):
+                        ltr.append(i)
+                        continue
+        return ltr
+#this class is used to filter the query result
+class filters:
+    #THIS FUNCTION IS USED TO FILTER OUR QUERY BASED ON DISCOUNT RATE
+    def discout_rates(self,price_dictionary,symbol,n):
+        #price dictionary is dictionary of price
+        #symbol is id of symbol ex 1. less_than 2.equal to 3. greater tham
+        #BELOW I AM APPLYING CONDITION WHICH SYMBOL IS SELECTED AND COMPUTE ACCORDING TO THAT
+        #N: IS THE DISCOUNT RATE
+        if(symbol == 1):
+            l3=[]
+            for i in range(len(price_dictionary)):
+                dit = price_dictionary[i]
+                p1 = dit['offer_price']
+                p2 = dit['regular_price']
+                if ((p2['value'] - p1['value'])/p2['value'])*100 < n:
+                    l3.append(i)               
+        elif(symbol == 3):
+            l3=[]
+            for i in range(len(price_dictionary)):
+                dit = price_dictionary[i]
+                p1 = dit['offer_price']
+                p2 = dit['regular_price']
+                if ((p2['value'] - p1['value'])/p2['value'])*100 > n:
+                    l3.append(i)
+        else:
+            l3=[]
+            for i in range(len(price_dictionary)):
+                dit = price_dictionary[i]
+                p1 = dit['offer_price']
+                p2 = dit['regular_price']
+                if ((p2['value'] - p1['value'])/p2['value'])*100 == n:
+                    l3.append(i)
+    #THIS FUNCTION FILTER OUR QUERY BASED ON BRAND NAME WE SELECT
+        return l3
+    def brand_filter(self,brand_dictionary,brand_id):
+        #BRAND DICTIONARY IS THE DICTIONARY WHICH CONTAINS INFORMATION REGARDING BRAND
+        #BRAND ID IS THE ID OF THE BRAND SELECTED BY USER
+        l_item=[]
+        for i in range(len(brand_dictionary)):
+            p=brand_dictionary[i]
+            cd = p['name']
+            l_item.append(cd)
+        pp=[]
+        for i in range(len(l_item)):
+            if l_item[i] == brands[brand_id-1]:
+                pp.append(i)
+        return pp
+    #THIS FUNCTION FILTER OUR QUERY BASED ON COMPETITOR NAME WE SELECT
+    def competition_name(self,similar_dict,c):
+        #SIMILAR DICTIONARY IS THE DICTIONARY WHICH CONTAINS INFORMATION REGARDING COMPETITORS
+        #BRAND ID IS THE ID OF THE BRAND SELECTED BY USER
+        lol = []
+        for i in range(len(similar_dict)):
+            yy = similar_dict[i]
+            ee= yy['website_results']
+            kl = list(ee.keys())
+            for j in range(len(kl)):
+                rrq =  ee[kl[j]]
+                pp = rrq['knn_items']
+                #if my list of competitors is not empty and competitor entered by user matches then
+                if(len(pp)!=0 and my_tid[c-1] == kl[j]):
+                    lol.append(i)
+                    break
+        return lol
+#here i am creating flask app
 app = Flask(__name__)
 queries = ['NAP products ','NAP_products_count and avg_discount','expensive_list','competition_discount_diff_list']
 filter_list = ['Discount','Brand Name ','Competition'] 
+#home is the main page of our API
 @app.route('/')
 def home():
     return render_template('index.html')
@@ -75,7 +239,7 @@ def predict():
             return render_template('Q3F3.html' , message = 'query is {} where  filter = {}'.format(queries[p-1], filter_list[q-1]))
         elif ( p == 4 and q == 2):
             return render_template('Q4F4.html' , message = 'query is {} where  filter = {}'.format(queries[p-1], filter_list[q-1]))
-    
+#this function is for when our query is give list of product and filter = discount
 @app.route('/fil1',methods=['POST'])
 def fil1():
     if request.method  == 'POST':
@@ -85,49 +249,14 @@ def fil1():
         if ( discount_rate > 100 or discount_rate < 0):
             return render_template('ppt.html', chota_message ='Plz make sure symbol can be (>, < ,==) and discount rate is > 0 and < 100')
         else:
-            l1=data['price']
+            price_dictionary=data['price']
             n=discount_rate
-            if(symbol == 1):
-                l3=[]
-                l4= []
-                l2=[]
-                for i in range(len(l1)):
-                    dit = l1[i]
-                    p1 = dit['offer_price']
-                    p2 = dit['regular_price']
-                    if ((p2['value'] - p1['value'])/p2['value'])*100 < n:
-                        l3.append(i)
-                        l4.append(p2['value'] - p1['value'])
-                for i in l3:
-                    l2.append(kk[i])
-                
-            elif(symbol == 3):
-                l3=[]
-                l4= []
-                l2=[]
-                for i in range(len(l1)):
-                    dit = l1[i]
-                    p1 = dit['offer_price']
-                    p2 = dit['regular_price']
-                    if ((p2['value'] - p1['value'])/p2['value'])*100 > n:
-                        l3.append(i)
-                        l4.append(p2['value'] - p1['value'])
-                for i in l3:
-                    l2.append(kk[i])
-            else:
-                l3=[]
-                l4= []
-                l2=[]
-                for i in range(len(l1)):
-                    dit = l1[i]
-                    p1 = dit['offer_price']
-                    p2 = dit['regular_price']
-                    if ((p2['value'] - p1['value'])/p2['value'])*100 == n:
-                        l3.append(i)
-                        l4.append(p2['value'] - p1['value'])
-                for i in l3:
-                    l2.append(kk[i])
-        return render_template('yoga.html', galaxies = l2 )
+            obj  = filters()
+            obj2  = queries_net()
+            my_filter_list = obj.discout_rates(price_dictionary,symbol,n)
+            my_query_1 = obj2.list_of_product(my_filter_list)
+        return render_template('yoga.html', galaxies = my_query_1 )
+#this function is for when our query is give count and avg discount of product and filter = discount
 @app.route('/fil2',methods=['POST'])
 def fil2():
     if request.method  == 'POST':
@@ -137,64 +266,14 @@ def fil2():
         if ( discount_rate > 100 or discount_rate < 0):
             return render_template('ppt2.html', chota_message ='Plz make sure symbol can be (>, < ,==) and discount rate is > 0 and < 100')
         else:
-            n=discount_rate
-            l1=data['price']
-            if(symbol == 1):
-                l3= []
-                l4 = []
-                count = 0
-                sum1 = 0
-                for i in range(len(l1)):
-                    dit = l1[i]
-                    p1 = dit['offer_price']
-                    p2 = dit['regular_price']
-                    if ((p2['value'] - p1['value'])/p2['value'])*100 < n:
-                        l3.append(i)
-                        l4.append(((p2['value'] - p1['value'])/p2['value']))
-                        count = count + 1
-                for i in l4:
-                    sum1 = sum1 + i
-                disc = 0
-                if(count!=0):
-                    disc = float(sum1/count)
-            elif(symbol == 3):
-                l3=[]
-                l4 = []
-                count = 0
-                sum1 = 0
-                for i in range(len(l1)):
-                    dit = l1[i]
-                    p1 = dit['offer_price']
-                    p2 = dit['regular_price']
-                    if ((p2['value'] - p1['value'])/p2['value'])*100 > n:
-                        l3.append(i)
-                        l4.append(((p2['value'] - p1['value'])/p2['value']))
-                        count = count + 1
-                for i in l4:
-                    sum1 = sum1 + i
-                disc = 0
-                if(count !=0 ):
-                    disc = float(sum1 / count)
-            else:
-                l3 = []
-                l4 = []
-                count = 0
-                sum1  = 0
-                for i in range(len(l1)):
-                    dit = l1[i]
-                    p1 = dit['offer_price']
-                    p2 = dit['regular_price']
-                    if (int((p2['value'] - p1['value'])/p2['value']))*100 == n:
-                        l3.append(i)
-                        l4.append(((p2['value'] - p1['value'])/p2['value']))
-                        count = count + 1
-                for i in l4:
-                    sum1 = sum1 + i
-                disc = 0
-                if(count !=0):
-                    disc= float(sum1 /count)
+          n=discount_rate
+          price_dictionary=data['price']
+          object_filter = filters()
+          object_query = queries_net()
+          my_filter_list = object_filter.discout_rates(price_dictionary,symbol,n)
+          count,disc = object_query.count_and_avg_discount(my_filter_list,price_dictionary)
         return render_template('yoga1.html', count = count , avg = disc )
-        
+#this function is for when our query is expensive list and filter = discount    
 @app.route('/fil3',methods=['POST'])
 def fil3():
     if request.method  == 'POST':
@@ -204,316 +283,108 @@ def fil3():
         if ( discount_rate > 100 or discount_rate < 0):
             return render_template('ppt3.html', chota_message ='Plz make sure symbol can be (>, < ,==) and discount rate is > 0 and < 100')
         else:
-            l7=  data['price']
-            l = data['similar_products']
+            price_dictionary =  data['price']
+            similar_product_dictionary = data['similar_products']
             n=discount_rate
-            if(symbol == 1):
-                l3=[]
-                l4= []
-                l2=[]
-                condition = 0
-                for k in range(len(l7)):
-                    dit = l7[k]
-                    p1 = dit['offer_price']
-                    p2 = dit['regular_price']
-                    if ((p2['value'] - p1['value'])/p2['value'])*100 < n:
-                        coro= l7[k]
-                        jolly = coro['basket_price']
-                        jolly2 = jolly['value']
-                        yy = l[k]
-                        condition = 0
-                        ee= yy['website_results']
-                        kk1 = list(ee.keys())
-                        for j in range(len(kk1)):
-                            rrq =  ee[kk1[j]]
-                            pp = rrq['knn_items']
-                            if(len(pp)!=0):
-                                c=pp[0]
-                                ta = c['_source']
-                                llb = ta['price']
-                                llb1=llb['basket_price']
-                                llb2= llb1['value']
-                                if(jolly2<llb2):
-                                    condition = 1
-                                    break                
-                        if condition == 0:
-                            l3.append(k)
-                for ck in l3:
-                    l2.append(kk[ck])
-                
-            elif(symbol == 3):
-                l3=[]
-                l2=[]
-                condition = 0
-                for k in range(len(l7)):
-                    dit = l7[k]
-                    p1 = dit['offer_price']
-                    p2 = dit['regular_price']
-                    if ((p2['value'] - p1['value'])/p2['value'])*100 < n:
-                        coro= l7[k]
-                        jolly = coro['basket_price']
-                        jolly2 = jolly['value']
-                        yy = l[k]
-                        condition = 0
-                        ee= yy['website_results']
-                        kk1 = list(ee.keys())
-                        for j in range(len(kk1)):
-                            rrq =  ee[kk1[j]]
-                            pp = rrq['knn_items']
-                            if(len(pp)!=0):
-                                c=pp[0]
-                                ta = c['_source']
-                                llb = ta['price']
-                                llb1=llb['basket_price']
-                                llb2= llb1['value']
-                                if(jolly2<llb2):
-                                    condition = 1
-                                    break                
-                        if condition == 0:
-                            l3.append(k)
-                for ck in l3:
-                    l2.append(kk[ck])
-                for i in l3:
-                    l2.append(kk[i])
-            else:
-                l3=[]
-                l2=[]
-                condition = 0
-                for k in range(len(l7)):
-                    dit = l7[k]
-                    p1 = dit['offer_price']
-                    p2 = dit['regular_price']
-                    if ((p2['value'] - p1['value'])/p2['value'])*100 < n:
-                        coro= l7[k]
-                        jolly = coro['basket_price']
-                        jolly2 = jolly['value']
-                        yy = l[k]
-                        condition = 0
-                        ee= yy['website_results']
-                        kk1 = list(ee.keys())
-                        for j in range(len(kk1)):
-                            rrq =  ee[kk1[j]]
-                            pp = rrq['knn_items']
-                            if(len(pp)!=0):
-                                c=pp[0]
-                                ta = c['_source']
-                                llb = ta['price']
-                                llb1=llb['basket_price']
-                                llb2= llb1['value']
-                                if(jolly2<llb2):
-                                    condition = 1
-                                    break                
-                        if condition == 0:
-                            l3.append(k)
-                for ck in l3:
-                    l2.append(kk[ck])
-        return render_template('yoga.html', galaxies = l2 )
+            object_filter = filters()
+            object_query = queries_net()
+            my_filter_list = object_filter.discout_rates(price_dictionary,symbol,n)
+            l2  = object_query.expensive_list(my_filter_list,price_dictionary,similar_product_dictionary)
+            my_query_3 = object_query.list_of_product(l2)
+            return render_template('yoga.html', galaxies = my_query_3 )
+#this function is for when our query is give list of product and filter = competitor
 @app.route('/fil5', methods=['POST'])
 def fil5():
     if request.method  == 'POST':
         features = [x for x in request.form.values()]
         symbol = int(features[0])
-        l6=data['similar_products']
-        lol = []
-        l2=[]
-        for i in range(len(l6)):
-            yy = l6[i]
-            ee= yy['website_results']
-            kl = list(ee.keys())
-            for j in range(len(kl)):
-                rrq =  ee[kl[j]]
-                pp = rrq['knn_items']
-                if(len(pp)!=0 and my_tid[symbol-1] == kl[j]):
-                    lol.append(i)
-                    break
-        for j in lol:
-            l2.append(kk[j])
-    return render_template('yoga.html', galaxies = l2 )
+        similar_dict=data['similar_products']
+        obj  = filters()
+        obj2  = queries_net()
+        my_filter_list = obj.competition_name(similar_dict,symbol)
+        my_query_1 = obj2.list_of_product(my_filter_list)
+        return render_template('yoga.html', galaxies = my_query_1 )
+#this function is for when our query is give count and avg discount of product and filter = competitor
 @app.route('/fil6', methods=['POST'])
 def fil6():
     if request.method  == 'POST':
         features = [x for x in request.form.values()]
         symbol = int(features[0])
-        l6=data['similar_products']
-        l1 = data['price']
-        l4 = []
-        count = 0
-        for i in range(len(l6)):
-            dit = l1[i]
-            p1 = dit['offer_price']
-            p2 = dit['regular_price']
-            yy = l6[i]
-            ee= yy['website_results']
-            kl = list(ee.keys())
-            for j in range(len(kl)):
-                rrq =  ee[kl[j]]
-                pp = rrq['knn_items']
-                if(len(pp)!=0 and my_tid[symbol-1] == kl[j]):
-                    count = count + 1
-                    l4.append(((p2['value'] - p1['value'])/p2['value']))
-                    break
-        sum1 = 0
-        for j in l4:
-            sum1 =sum1+ j
-        if(count != 0):
-            disc = float(sum1/count)
+        price_dictionary=data['price']
+        similar_dictionary=data['similar_products']
+        object_filter = filters()
+        object_query = queries_net()
+        my_filter_list = object_filter.competition_name(similar_dictionary,symbol)
+        count,disc = object_query.count_and_avg_discount(my_filter_list,price_dictionary)
         return render_template('yoga1.html', count = count , avg = disc )
+#this function is for when our query is give expemsive list of product and filter = competitor
 @app.route('/fil7',methods=['POST'])
 def fil7():
     if request.method  == 'POST':
         features = [x for x in request.form.values()]
         symbol = int(features[0])
-        l6=data['similar_products']
-        l1 = data['price']
-        ltr = []
-        l_final = []
-        condition = 0
-        for i in range(len(l1)):
-            dit = l1[i]
-            p1 = dit['basket_price']
-            jool = p1['value']
-            yy = l6[i]
-            ee= yy['website_results']
-            kl = list(ee.keys())
-            for j in range(len(kl)):
-                rrq =  ee[kl[j]]
-                pp = rrq['knn_items']
-                if(len(pp)!=0 and my_tid[symbol-1] == kl[j]):
-                    condition= 1
-                    continue
-            if condition == 1:
-                for j in range(len(kl)):
-                    rrq =  ee[kl[j]]
-                    pp = rrq['knn_items']
-                    if(len(pp)!=0):
-                        c=pp[0]
-                        ta = c['_source']
-                        llb = ta['price']
-                        llb1=llb['basket_price']
-                        llb2= llb1['value']
-                        if(jool>llb2):
-                            ltr.append(i)
-        for i in ltr:
-            l_final.append(kk[i])
-        return render_template('yoga.html', galaxies = l_final)
+        price_dictionary =  data['price']
+        similar_dictionary = data['similar_products']
+        object_filter = filters()
+        object_query = queries_net()
+        my_filter_list = object_filter.competition_name(similar_dictionary,symbol)
+        l2  = object_query.expensive_list(my_filter_list,price_dictionary,similar_dictionary)
+        my_query_3 = object_query.list_of_product(l2)
+        return render_template('yoga.html', galaxies = my_query_3 )
 @app.route('/fil8',methods=['POST'])
+#this function is for when our query is give list of product where they are selling greater than n% from competitor and filter = competitor
 def fil8():
     if request.method  == 'POST':
-        features = [x for x in request.form.values()]
-        symbol = int(features[0])
-        discount = int(features[1])
-        n=discount
-        l6=data['similar_products']
-        l1 = data['price']
-        ltr = []
-        l_final = []
-        for i in range(len(l1)):
-            dit = l1[i]
-            p1 = dit['basket_price']
-            jool = p1['value']
-            yy = l6[i]
-            ee= yy['website_results']
-            kl = list(ee.keys())
-            for j in range(len(kl)):
-                rrq =  ee[kl[j]]
-                pp = rrq['knn_items']
-                if(len(pp)!=0 and my_tid[symbol-1] == kl[j]):
-                    c=pp[0]
-                    ta = c['_source']
-                    llb = ta['price']
-                    llb1=llb['basket_price']
-                    llb2= llb1['value']
-                    avg = ((jool+llb2)/2)
-                    if((((jool-llb2)/avg)*100) > n):
-                        ltr.append(i)
-                        continue
-        for i in ltr:
-            l_final.append(kk[i])
-        return render_template('yoga.html', galaxies = l_final)
+         features = [x for x in request.form.values()]
+         symbol = int(features[0])
+         discount_rate = int(features[1])
+         price_dictionary=data['price']
+         similar_dictionary = data['similar_products']
+         obj  = filters()
+         obj2  = queries_net()
+         my_filter_list = obj.competition_name(similar_dictionary,symbol)
+         my_query_1 = obj2.competition(discount_rate,symbol,my_filter_list,similar_dictionary,price_dictionary)
+         my_query_3 = obj2.list_of_product(my_query_1)      
+         return render_template('yoga.html', galaxies = my_query_3)     
+#this function is for when our query is give list of product and filter = brand_name
 @app.route('/fil9', methods=['POST'])
 def fil9():
     if request.method  == 'POST':
         features = [x for x in request.form.values()]
-        symbol = int(features[0])
-        sala = data['brand']
-        l_item=[]
-        l2=[]
-        for i in range(len(sala)):
-            p=sala[i]
-            cd = p['name']
-            l_item.append(cd)
-        pp=[]
-        for i in range(len(l_item)):
-            if l_item[i] == brands[symbol-1]:
-                pp.append(i)
-        for j in pp:
-            l2.append(kk[j])
-        return render_template('yoga.html', galaxies = l2 )
+        brand_index = int(features[0])
+        brand_dictionary = data['brand']
+        obj_brand = filters()
+        obj_id = queries_net()
+        filter_list= obj_brand.brand_filter(brand_dictionary,brand_index)
+        brand_id = obj_id.list_of_product(filter_list)
+        return render_template('yoga.html', galaxies = brand_id)
+#this function is for when our query is give count and avg_discount of product and filter = brand_name
 @app.route('/fil10', methods=['POST'])
 def fil10():
     if request.method  == 'POST':
         features = [x for x in request.form.values()]
-        symbol = int(features[0])
-        sala = data['brand']
-        l1 = data['price']
-        count = 0
-        disc=0
-        l_item=[]
-        for i in range(len(sala)):
-            p=sala[i]
-            cd = p['name']
-            l_item.append(cd)
-        pp=[]
-        sum1 = 0
-        for i in range(len(l_item)):
-            dit = l1[i]
-            p1 = dit['offer_price']
-            p2 = dit['regular_price']
-            if l_item[i] == brands[symbol-1]:
-                count = count+1
-                pp.append(((p2['value'] - p1['value'])/p2['value']))
-        for j in pp:
-            sum1 = sum1 +  j
-        if(count!=0):
-            disc = float(sum1/count)
+        brand_index = int(features[0])
+        brand_dictionary = data['brand']
+        price_dictionary = data['price']
+        obj_brand_count = filters()
+        obj_id_1 = queries_net()
+        filter_list= obj_brand_count.brand_filter(brand_dictionary,brand_index)
+        count,disc = obj_id_1.count_and_avg_discount(filter_list,price_dictionary)
         return render_template('yoga1.html', count = count , avg = disc )
+#this function is for when our query is give expensive list of product and filter = competitor
 @app.route('/fil11', methods=['POST','GET'])
 def fil11():
     if request.method  == 'POST':
         features = [x for x in request.form.values()]
-        symbol = int(features[0])
-        sala = data['brand']
-        l1 = data['price']
-        l6=data['similar_products']
-        l_item=[]
-        l2=[]
-        for i in range(len(sala)):
-            p=sala[i]
-            cd = p['name']
-            l_item.append(cd)
-        ppt= []
-        for k in range(len(l_item)):
-            if l_item[k] == brands[symbol-1]:
-                dit = l1[k]
-                p1 = dit['basket_price']
-                jool = p1['value']
-                yy=l6[k]
-                ee= yy['website_results']
-                kl = list(ee.keys())
-                for j in range(len(kl)):
-                    rrq =  ee[kl[j]]
-                    pp = rrq['knn_items']
-                    if(len(pp)!=0):
-                        c=pp[0]
-                        ta = c['_source']
-                        llb = ta['price']
-                        llb1=llb['basket_price']
-                        llb2= llb1['value']
-                        if(jool>llb2):
-                            ppt.append(j)
-                            continue
-        for j in ppt:
-            l2.append(kk[j])
-        return render_template('yoga.html', galaxies = l2)
+        brand_index = int(features[0])
+        brand_dictionary = data['brand']
+        price_dictionary= data['price']
+        similar_dictionary= data['similar_products']
+        obj_brand_exp = filters()
+        obj_id_2 = queries_net()
+        filter_list= obj_brand_exp.brand_filter(brand_dictionary,brand_index)
+        brand_id_exp = obj_id_2.expensive_list(filter_list,price_dictionary,similar_dictionary)
+        my_query_3 = obj_id_2.list_of_product(brand_id_exp)
+        return render_template('yoga.html', galaxies = my_query_3)
 if __name__ == "__main__":
     app.run(debug=True)
